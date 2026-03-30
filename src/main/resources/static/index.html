@@ -1,0 +1,349 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <title>Validateur de politiques d'accès</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <style>
+        :root { --bleu:#0b3d91; --bleu-clair:#dfe7f7; --gris:#f5f7fb; --vert:#1f8f4e; --rouge:#c0392b; --orange:#d68910; --violet:#6c5ce7; }
+        * { box-sizing:border-box; }
+        body { font-family: Arial, sans-serif; margin:0; background:var(--gris); color:#222; }
+        header { background:white; padding:20px 28px; box-shadow:0 2px 10px rgba(0,0,0,.08); display:flex; justify-content:space-between; align-items:center; gap:16px; flex-wrap:wrap; }
+        h1,h2,h3 { margin:0 0 12px; color:var(--bleu); }
+        .petit { color:#606b7a; font-size:13px; }
+        .conteneur { max-width:1280px; margin:24px auto; padding:0 16px; }
+        .bloc-session { display:flex; align-items:center; gap:12px; flex-wrap:wrap; }
+        .badge-role { background:var(--bleu-clair); color:var(--bleu); font-weight:700; padding:6px 10px; border-radius:999px; font-size:12px; }
+        .bouton-secondaire, .bouton-principal, .bouton-mini { border:none; border-radius:10px; cursor:pointer; font-weight:700; }
+        .bouton-secondaire { background:white; border:1px solid #ccd3df; padding:10px 14px; }
+        .bouton-principal { background:var(--bleu); color:white; padding:12px 18px; }
+        .bouton-mini { padding:8px 10px; color:white; }
+        .btn-approuver { background:var(--vert); }
+        .btn-refuser { background:var(--rouge); }
+        .btn-revoir { background:var(--orange); }
+        .onglets { display:flex; flex-wrap:wrap; gap:10px; margin-bottom:16px; }
+        .onglet-btn { border:none; padding:12px 18px; border-radius:10px; cursor:pointer; background:#dfe7f7; font-weight:700; }
+        .onglet-btn.actif { background:var(--bleu); color:white; }
+        .carte { background:white; border-radius:14px; padding:22px; box-shadow:0 4px 16px rgba(0,0,0,.06); }
+        .onglet { display:none; }
+        .onglet.actif { display:block; }
+        form.grille { display:grid; grid-template-columns:repeat(auto-fit,minmax(240px,1fr)); gap:14px; }
+        .champ { display:flex; flex-direction:column; gap:6px; }
+        label { font-weight:700; font-size:14px; }
+        input, select, textarea { padding:11px 12px; border:1px solid #ccd3df; border-radius:10px; font-size:14px; }
+        textarea { min-height:100px; resize:vertical; }
+        table { width:100%; border-collapse:collapse; margin-top:12px; }
+        th, td { padding:10px; border-bottom:1px solid #e5e9f2; text-align:left; font-size:14px; vertical-align:top; }
+        th { background:#f0f4fb; }
+        .badge { display:inline-block; padding:6px 10px; border-radius:20px; color:white; font-weight:700; font-size:12px; }
+        .ACCEPTE, .APPROUVEE { background:var(--vert); }
+        .REFUSE, .REFUSEE { background:var(--rouge); }
+        .A_VALIDER, .EN_ATTENTE { background:var(--orange); }
+        .A_REVOIR { background:var(--violet); }
+        .resultat, .message-info, .message-vide, .interdit { margin-top:16px; padding:16px; border-radius:12px; }
+        .resultat { background:#eef3ff; }
+        .message-info { background:#fff6d7; color:#7a5a00; }
+        .message-vide { background:#f8f9fb; color:#666; }
+        .interdit { background:#fdecea; color:#9b1c1c; }
+        .kpis { display:grid; grid-template-columns:repeat(auto-fit,minmax(180px,1fr)); gap:14px; }
+        .kpi { background:#f7f9fd; border:1px solid #e5ebf7; padding:18px; border-radius:14px; }
+        .kpi .valeur { font-size:28px; font-weight:800; color:var(--bleu); }
+        .filtres { display:grid; grid-template-columns:repeat(auto-fit,minmax(220px,1fr)); gap:12px; margin-bottom:12px; }
+        .ligne-actions { display:flex; gap:8px; flex-wrap:wrap; }
+    </style>
+</head>
+<body>
+<header>
+    <div>
+        <h1>Validateur de politiques d’accès</h1>
+        <div class="petit">Workflow complet des demandes, validation manuelle et tableau de bord</div>
+    </div>
+    <div class="bloc-session">
+        <span id="utilisateur-connecte" class="petit">Chargement de la session…</span>
+        <div id="roles-connectes"></div>
+        <form method="post" action="/deconnexion" style="display:inline;">
+            <button class="bouton-secondaire" type="submit">Se déconnecter</button>
+        </form>
+    </div>
+</header>
+
+<div class="conteneur">
+    <div class="onglets">
+        <button class="onglet-btn actif" data-cible="principal">Onglet principal</button>
+        <button class="onglet-btn" data-cible="historique">Historique</button>
+        <button class="onglet-btn" data-cible="utilisateurs">Tous les utilisateurs</button>
+        <button class="onglet-btn" data-cible="pilotage">Pilotage</button>
+    </div>
+
+    <section id="principal" class="onglet actif carte">
+        <h2>Créer et évaluer une demande</h2>
+        <div class="message-info">Les demandes sensibles sont placées en attente, puis décidées manuellement par un administrateur.</div>
+        <form id="formulaire-validation" class="grille">
+            <div class="champ"><label for="nomUtilisateur">Nom utilisateur</label><input id="nomUtilisateur" required></div>
+            <div class="champ"><label for="departement">Département</label><select id="departement" required><option value="">Sélectionner</option><option>RH</option><option>Finance</option><option>Informatique</option><option>Operations</option><option>Juridique</option></select></div>
+            <div class="champ"><label for="typeEmploye">Type d’employé</label><select id="typeEmploye" required><option value="">Sélectionner</option><option>EMPLOYE</option><option>STAGIAIRE</option><option>CONSULTANT</option></select></div>
+            <div class="champ"><label for="roleDemande">Rôle demandé</label><select id="roleDemande" required><option value="">Sélectionner</option><option>LECTURE</option><option>ANALYSTE</option><option>VALIDATEUR</option><option>ADMIN</option></select></div>
+            <div class="champ"><label for="application">Application</label><select id="application" required><option value="">Sélectionner</option><option>RH</option><option>Paie</option><option>ServiceNow</option><option>CMDB</option><option>Reporting Finance</option></select></div>
+            <div class="champ"><label for="niveauSensibilite">Niveau de sensibilité</label><select id="niveauSensibilite" required><option value="">Sélectionner</option><option>LOW</option><option>MEDIUM</option><option>HIGH</option></select></div>
+            <div class="champ" style="grid-column:1/-1;"><label for="justification">Justification</label><textarea id="justification" required></textarea></div>
+            <div style="grid-column:1/-1;"><button type="submit" class="bouton-principal">Analyser la demande</button></div>
+        </form>
+        <div id="zone-resultat"></div>
+    </section>
+
+    <section id="historique" class="onglet carte">
+        <h2>Historique et décisions</h2>
+        <div id="contenu-historique" class="message-vide">Chargement de l’historique…</div>
+    </section>
+
+    <section id="utilisateurs" class="onglet carte">
+        <h2>Référentiel utilisateurs</h2>
+        <div class="filtres">
+            <input id="filtreRecherche" placeholder="Rechercher un utilisateur">
+            <select id="filtreDepartement"><option value="">Tous les départements</option></select>
+            <select id="filtreTypeEmploye"><option value="">Tous les types d’employé</option></select>
+            <input id="filtreApplication" placeholder="Filtrer par application">
+        </div>
+        <div id="contenu-utilisateurs" class="message-vide">Chargement des utilisateurs…</div>
+    </section>
+
+    <section id="pilotage" class="onglet carte">
+        <h2>Tableau de bord métier</h2>
+        <div id="contenu-tableau-bord" class="message-vide">Chargement du tableau de bord…</div>
+    </section>
+</div>
+
+<script>
+const boutonsOnglets = document.querySelectorAll('.onglet-btn');
+const onglets = document.querySelectorAll('.onglet');
+let rolesActuels = [];
+let listeUtilisateurs = [];
+
+boutonsOnglets.forEach(btn => btn.addEventListener('click', () => {
+  boutonsOnglets.forEach(x => x.classList.remove('actif'));
+  onglets.forEach(x => x.classList.remove('actif'));
+  btn.classList.add('actif');
+  document.getElementById(btn.dataset.cible).classList.add('actif');
+}));
+
+async function getJson(url, options = {}) {
+  const response = await fetch(url, options);
+  if (!response.ok) {
+    throw new Error("Requête impossible");
+  }
+  return response.json();
+}
+
+async function chargerSession() {
+  const session = await getJson('/api/session');
+  document.getElementById('utilisateur-connecte').textContent = `Connecté : ${session.utilisateur}`;
+  rolesActuels = session.roles || [];
+  document.getElementById('roles-connectes').innerHTML = rolesActuels.map(role => `<span class="badge-role">${role}</span>`).join('');
+}
+
+document.getElementById('formulaire-validation').addEventListener('submit', async (event) => {
+  event.preventDefault();
+  const donnees = {
+    nomUtilisateur: document.getElementById('nomUtilisateur').value,
+    departement: document.getElementById('departement').value,
+    typeEmploye: document.getElementById('typeEmploye').value,
+    roleDemande: document.getElementById('roleDemande').value,
+    application: document.getElementById('application').value,
+    niveauSensibilite: document.getElementById('niveauSensibilite').value,
+    justification: document.getElementById('justification').value
+  };
+  try {
+    const resultat = await getJson('/api/acces/valider', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify(donnees)
+    });
+    document.getElementById('zone-resultat').innerHTML = `
+      <div class="resultat">
+        <div><span class="badge ${resultat.decision}">${resultat.decision}</span></div>
+        <p><strong>Utilisateur :</strong> ${resultat.nomUtilisateur}</p>
+        <p><strong>Application :</strong> ${resultat.application}</p>
+        <p><strong>Message :</strong> ${resultat.message}</p>
+        <p><strong>Règles :</strong> ${resultat.reglesDeclenchees.join(' | ')}</p>
+      </div>`;
+    chargerHistorique();
+    chargerTableauBord();
+  } catch (e) {
+    document.getElementById('zone-resultat').innerHTML = '<div class="interdit">Impossible de traiter la demande.</div>';
+  }
+});
+
+function badge(valeur) {
+  return `<span class="badge ${valeur}">${valeur}</span>`;
+}
+
+async function chargerHistorique() {
+  const conteneur = document.getElementById('contenu-historique');
+  try {
+    const historique = await getJson('/api/acces/historique');
+    if (!historique.length) {
+      conteneur.className = 'message-vide';
+      conteneur.textContent = 'Aucune demande enregistrée.';
+      return;
+    }
+    conteneur.className = '';
+    conteneur.innerHTML = `
+      <table>
+        <thead>
+          <tr>
+            <th>ID</th>
+            <th>Utilisateur</th>
+            <th>Application</th>
+            <th>Décision</th>
+            <th>Statut</th>
+            <th>Commentaire</th>
+            <th>Validé par</th>
+            <th>Actions</th>
+          </tr>
+        </thead>
+        <tbody>
+          ${historique.map(d => `
+            <tr>
+              <td>${d.id ?? ''}</td>
+              <td>${d.nomUtilisateur}</td>
+              <td>${d.application}</td>
+              <td>${badge(d.decision)}</td>
+              <td>${badge(d.statutDemande)}</td>
+              <td>${d.commentaireDecision ?? ''}</td>
+              <td>${d.validePar ?? ''}</td>
+              <td>${afficherActions(d)}</td>
+            </tr>`).join('')}
+        </tbody>
+      </table>`;
+  } catch (e) {
+    conteneur.className = 'interdit';
+    conteneur.textContent = "Impossible de charger l'historique.";
+  }
+}
+
+function afficherActions(demande) {
+  const estAdmin = rolesActuels.includes('ROLE_ADMIN');
+  if (!estAdmin) return 'Consultation';
+  if (demande.statutDemande !== 'EN_ATTENTE' && demande.statutDemande !== 'A_REVOIR') return 'Aucune action';
+  return `
+    <div class="ligne-actions">
+      <button class="bouton-mini btn-approuver" onclick="decider(${demande.id}, 'APPROUVEE')">Approuver</button>
+      <button class="bouton-mini btn-refuser" onclick="decider(${demande.id}, 'REFUSEE')">Refuser</button>
+      <button class="bouton-mini btn-revoir" onclick="decider(${demande.id}, 'A_REVOIR')">À revoir</button>
+    </div>`;
+}
+
+async function decider(id, statutCible) {
+  const commentaire = prompt("Commentaire de décision :");
+  if (!commentaire) return;
+  try {
+    await getJson(`/api/acces/decider/${id}`, {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({ statutCible, commentaireDecision: commentaire })
+    });
+    chargerHistorique();
+    chargerTableauBord();
+  } catch (e) {
+    alert("Impossible d'enregistrer la décision.");
+  }
+}
+
+async function chargerUtilisateurs() {
+  const conteneur = document.getElementById('contenu-utilisateurs');
+  if (!rolesActuels.includes('ROLE_ADMIN')) {
+    conteneur.className = 'interdit';
+    conteneur.textContent = "Accès réservé au rôle ADMIN.";
+    return;
+  }
+  try {
+    listeUtilisateurs = await getJson('/api/acces/utilisateurs');
+    alimenterFiltres();
+    afficherUtilisateurs();
+  } catch (e) {
+    conteneur.className = 'interdit';
+    conteneur.textContent = "Impossible de charger les utilisateurs.";
+  }
+}
+
+function alimenterFiltres() {
+  const departements = [...new Set(listeUtilisateurs.map(u => u.departement))].filter(Boolean);
+  const types = [...new Set(listeUtilisateurs.map(u => u.typeEmploye))].filter(Boolean);
+  document.getElementById('filtreDepartement').innerHTML = '<option value="">Tous les départements</option>' + departements.map(v => `<option>${v}</option>`).join('');
+  document.getElementById('filtreTypeEmploye').innerHTML = '<option value="">Tous les types d’employé</option>' + types.map(v => `<option>${v}</option>`).join('');
+}
+
+function afficherUtilisateurs() {
+  const recherche = document.getElementById('filtreRecherche').value.toLowerCase();
+  const departement = document.getElementById('filtreDepartement').value;
+  const typeEmploye = document.getElementById('filtreTypeEmploye').value;
+  const application = document.getElementById('filtreApplication').value.toLowerCase();
+  const filtres = listeUtilisateurs.filter(u => {
+    const okRecherche = !recherche || (u.nomUtilisateur || '').toLowerCase().includes(recherche);
+    const okDepartement = !departement || u.departement === departement;
+    const okType = !typeEmploye || u.typeEmploye === typeEmploye;
+    const okApplication = !application || (u.applicationsHabilitees || '').toLowerCase().includes(application);
+    return okRecherche && okDepartement && okType && okApplication;
+  });
+  const conteneur = document.getElementById('contenu-utilisateurs');
+  if (!filtres.length) {
+    conteneur.className = 'message-vide';
+    conteneur.textContent = 'Aucun utilisateur trouvé.';
+    return;
+  }
+  conteneur.className = '';
+  conteneur.innerHTML = `
+    <table>
+      <thead>
+        <tr>
+          <th>Nom</th>
+          <th>Département</th>
+          <th>Type d’employé</th>
+          <th>Applications habilitées</th>
+        </tr>
+      </thead>
+      <tbody>
+        ${filtres.map(u => `
+          <tr>
+            <td>${u.nomUtilisateur}</td>
+            <td>${u.departement}</td>
+            <td>${u.typeEmploye}</td>
+            <td>${u.applicationsHabilitees}</td>
+          </tr>`).join('')}
+      </tbody>
+    </table>`;
+}
+
+['filtreRecherche','filtreDepartement','filtreTypeEmploye','filtreApplication'].forEach(id => {
+  document.getElementById(id).addEventListener('input', afficherUtilisateurs);
+  document.getElementById(id).addEventListener('change', afficherUtilisateurs);
+});
+
+async function chargerTableauBord() {
+  const conteneur = document.getElementById('contenu-tableau-bord');
+  try {
+    const data = await getJson('/api/acces/tableau-bord');
+    conteneur.className = '';
+    conteneur.innerHTML = `
+      <div class="kpis">
+        <div class="kpi"><div class="petit">Total demandes</div><div class="valeur">${data.totalDemandes}</div></div>
+        <div class="kpi"><div class="petit">En attente</div><div class="valeur">${data.demandesEnAttente}</div></div>
+        <div class="kpi"><div class="petit">Approuvées</div><div class="valeur">${data.demandesApprouvees}</div></div>
+        <div class="kpi"><div class="petit">Refusées</div><div class="valeur">${data.demandesRefusees}</div></div>
+        <div class="kpi"><div class="petit">À revoir</div><div class="valeur">${data.demandesARevoir}</div></div>
+      </div>`;
+  } catch (e) {
+    conteneur.className = 'interdit';
+    conteneur.textContent = "Impossible de charger le tableau de bord.";
+  }
+}
+
+(async function initialiser() {
+  await chargerSession();
+  await chargerHistorique();
+  await chargerTableauBord();
+  await chargerUtilisateurs();
+})();
+</script>
+</body>
+</html>

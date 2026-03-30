@@ -1,0 +1,59 @@
+
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <title>Connexion - Validateur de politiques d'accès</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <style>
+        body { font-family: Arial, sans-serif; background:#f5f7fb; margin:0; display:flex; align-items:center; justify-content:center; min-height:100vh; color:#1f2937; }
+        .carte { background:white; width:min(460px, 92vw); padding:28px; border-radius:16px; box-shadow:0 10px 30px rgba(0,0,0,.08); }
+        h1 { margin-top:0; color:#0b3d91; }
+        .petit { color:#5b6472; font-size:14px; }
+        .champ { display:flex; flex-direction:column; gap:6px; margin:14px 0; }
+        input { padding:12px 14px; border:1px solid #d1d5db; border-radius:10px; font-size:14px; }
+        button { width:100%; background:#0b3d91; color:white; border:none; padding:12px 16px; border-radius:10px; font-weight:700; cursor:pointer; margin-top:10px; }
+        .bandeau { padding:12px 14px; border-radius:10px; margin-bottom:12px; }
+        .erreur { background:#fdecea; color:#9b1c1c; }
+        .succes { background:#edf7ed; color:#256029; }
+        .cred { margin-top:16px; background:#f8fafc; border:1px solid #e5e7eb; border-radius:10px; padding:14px; font-size:14px; }
+        code { background:#eef2ff; padding:2px 6px; border-radius:6px; }
+    </style>
+</head>
+<body>
+<div class="carte">
+    <h1>Connexion</h1>
+    <p class="petit">Authentifie-toi pour accéder à la V4 sécurisée du validateur.</p>
+
+    <div id="message-erreur" class="bandeau erreur" style="display:none;">Identifiants invalides. Réessaie.</div>
+    <div id="message-logout" class="bandeau succes" style="display:none;">Déconnexion réussie.</div>
+
+    <form method="post" action="/connexion">
+        <div class="champ">
+            <label for="username">Nom d’utilisateur</label>
+            <input id="username" name="username" required>
+        </div>
+        <div class="champ">
+            <label for="password">Mot de passe</label>
+            <input id="password" name="password" type="password" required>
+        </div>
+        <button type="submit">Se connecter</button>
+    </form>
+
+    <div class="cred">
+        <strong>Comptes de démonstration</strong><br><br>
+        <div><code>admin</code> / <code>admin123</code> — accès complet</div>
+        <div><code>analyste</code> / <code>analyste123</code> — validation + historique</div>
+    </div>
+</div>
+<script>
+const params = new URLSearchParams(window.location.search);
+if (params.has('error')) {
+  document.getElementById('message-erreur').style.display = 'block';
+}
+if (params.has('logout')) {
+  document.getElementById('message-logout').style.display = 'block';
+}
+</script>
+</body>
+</html>
