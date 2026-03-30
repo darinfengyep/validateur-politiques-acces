@@ -1,0 +1,64 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Validateur de politiques d'accès</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 0; background: #f5f7fb; color: #1b1f23; }
+        .conteneur { max-width: 900px; margin: 30px auto; background: #fff; padding: 24px; border-radius: 16px; box-shadow: 0 8px 24px rgba(0,0,0,.08); }
+        h1 { margin-top: 0; }
+        .grille { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+        .champ { display: flex; flex-direction: column; }
+        label { font-weight: bold; margin-bottom: 6px; }
+        input, select, textarea, button { padding: 10px; border-radius: 8px; border: 1px solid #c8d0da; font-size: 14px; }
+        textarea { min-height: 100px; }
+        button { margin-top: 16px; background: #0b63ce; color: white; border: none; cursor: pointer; }
+        button:hover { background: #094ea2; }
+        .bloc-resultat { margin-top: 24px; padding: 16px; border-radius: 12px; background: #f8fafc; border: 1px solid #d9e2ec; }
+        .decision { font-size: 20px; font-weight: bold; margin-bottom: 8px; }
+        .ok { color: #0b7a2f; }
+        .attente { color: #a56b00; }
+        .rejet { color: #b42318; }
+        ul { padding-left: 20px; }
+        @media (max-width: 700px) { .grille { grid-template-columns: 1fr; } }
+    </style>
+</head>
+<body>
+<div class="conteneur">
+    <h1>Validateur de politiques d'accès</h1>
+    <p>Teste une demande d'habilitation selon des règles métier simples.</p>
+    <div class="grille">
+        <div class="champ"><label for="nomUtilisateur">Nom de l'utilisateur</label><input id="nomUtilisateur" value="Darin Fengyep"></div>
+        <div class="champ"><label for="departement">Département</label><select id="departement"><option>FINANCE</option><option>RH</option><option>TI</option><option>OPERATIONS</option></select></div>
+        <div class="champ"><label for="typeEmploye">Type d'employé</label><select id="typeEmploye"><option>EMPLOYE</option><option>STAGIAIRE</option><option>CONSULTANT</option></select></div>
+        <div class="champ"><label for="roleDemande">Rôle demandé</label><select id="roleDemande"><option>LECTURE</option><option>EDITEUR</option><option>ADMIN</option></select></div>
+        <div class="champ"><label for="applicationCible">Application cible</label><select id="applicationCible"><option>SystemePaie</option><option>PortailRH</option><option>ConsoleAdmin</option></select></div>
+        <div class="champ"><label for="niveauSensibilite">Niveau de sensibilité</label><select id="niveauSensibilite"><option>FAIBLE</option><option>MOYENNE</option><option>ELEVEE</option></select></div>
+    </div>
+    <div class="champ" style="margin-top:16px;"><label for="justification">Justification</label><textarea id="justification">Besoin d'accès pour traiter des opérations liées à mon activité.</textarea></div>
+    <button onclick="validerDemande()">Valider la demande</button>
+    <div id="resultat" class="bloc-resultat" style="display:none;"></div>
+</div>
+<script>
+async function validerDemande() {
+  const demande = {
+    nomUtilisateur: document.getElementById('nomUtilisateur').value,
+    departement: document.getElementById('departement').value,
+    typeEmploye: document.getElementById('typeEmploye').value,
+    roleDemande: document.getElementById('roleDemande').value,
+    applicationCible: document.getElementById('applicationCible').value,
+    niveauSensibilite: document.getElementById('niveauSensibilite').value,
+    justification: document.getElementById('justification').value
+  };
+  const reponse = await fetch('/api/acces/valider', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(demande) });
+  const donnees = await reponse.json();
+  const bloc = document.getElementById('resultat'); bloc.style.display = 'block';
+  if (!reponse.ok) { bloc.innerHTML = `<div class="decision rejet">Erreur de validation</div><pre>${JSON.stringify(donnees, null, 2)}</pre>`; return; }
+  const classeDecision = donnees.decision === 'APPROUVEE' ? 'ok' : (donnees.decision === 'REJETEE' ? 'rejet' : 'attente');
+  const lignes = donnees.resultatsRegles.map(r => `<li><strong>${r.nomRegle}</strong> — ${r.resultat} : ${r.message}</li>`).join('');
+  bloc.innerHTML = `<div class="decision ${classeDecision}">${donnees.decision}</div><p>${donnees.messageGlobal}</p><ul>${lignes}</ul>`;
+}
+</script>
+</body>
+</html>
