@@ -79,7 +79,7 @@ Ce projet simule un système utilisé en entreprise pour :
 
 ---
 
-## 🏗️ Stack technique
+##  Stack technique
 
 - Java 17
 - Spring Boot
